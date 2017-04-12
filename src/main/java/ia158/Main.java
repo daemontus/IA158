@@ -3,21 +3,39 @@ package ia158;
 import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 import lejos.robotics.RegulatedMotor;
-import lejos.utility.Delay;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(Resource[] args) {
 
-        System.out.println("Hello world from EV3");
+        // Initialization
+        RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
+        RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
+        State state = State.SEARCHING;
+        FixedPrirotyScheduler scheduler = new FixedPrirotyScheduler();
+        scheduler.addResource("rightWheels", rightWheels);
+        scheduler.addResource("leftWheels", leftWheels);
 
-        RegulatedMotor motor = new EV3LargeRegulatedMotor(MotorPort.B);
+        // prepare jobs
+        Job rotateJob = new Job(5) {
+            @Override
+            public void run() {
+                // get resources
+                RegulatedMotor rightWheels = (RegulatedMotor) resources.get("rightWheels").getResource();
+                RegulatedMotor leftWheels = (RegulatedMotor) resources.get("leftWheels").getResource();
+                // rotate
+                rightWheels.forward();
+                leftWheels.backward();
+            }
+        };
 
-        motor.forward();
+        // init jobs
+        scheduler.planJob(rotateJob);
 
-        Delay.msDelay(5000);
-
-        motor.stop();
+        // run
+        while (true) {
+            scheduler.executeNext();
+        }
 
     }
 
