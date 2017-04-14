@@ -22,6 +22,10 @@ public abstract class Job implements Runnable {
         this.resources = resources;
     }
 
+    public <T> T getResource(String name, Class<T> type) {
+        return type.cast(resources.get(name).getResource());
+    }
+
     @Override
     public abstract void run();
 }

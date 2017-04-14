@@ -13,7 +13,6 @@ public class Main {
         RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
-        State state = State.SEARCHING;
         FixedPrirotyScheduler scheduler = new FixedPrirotyScheduler();
         scheduler.addResource("rightWheels", rightWheels);
         scheduler.addResource("leftWheels", leftWheels);
@@ -24,8 +23,8 @@ public class Main {
             @Override
             public void run() {
                 // get resources
-                RegulatedMotor rightWheels = (RegulatedMotor) resources.get("rightWheels").getResource();
-                RegulatedMotor leftWheels = (RegulatedMotor) resources.get("leftWheels").getResource();
+                RegulatedMotor rightWheels = getResource("rightWheels", RegulatedMotor.class);
+                RegulatedMotor leftWheels = getResource("leftWheels", RegulatedMotor.class);
                 // rotate
                 rightWheels.forward();
                 leftWheels.backward();
@@ -35,9 +34,7 @@ public class Main {
         Job shootJob = new Job(10) {
             @Override
             public void run() {
-                RegulatedMotor shoot = (RegulatedMotor) resources.get("shoot").getResource();
-
-                System.out.println("Fire in the hole!!");
+                RegulatedMotor shoot = getResource("shoot", RegulatedMotor.class);
 
                 shoot.forward();
             }
@@ -45,44 +42,32 @@ public class Main {
         Job shootStopJob = new Job(10) {
             @Override
             public void run() {
-                RegulatedMotor shoot = (RegulatedMotor) resources.get("shoot").getResource();
+                RegulatedMotor shoot = getResource("shoot", RegulatedMotor.class);
 
                 shoot.stop();
             }
         };
 
-        Job stop = new Job(6) {
+        Job stopRotateJob = new Job(6) {
             @Override
             public void run() {
                 // get resources
-                RegulatedMotor rightWheels = (RegulatedMotor) resources.get("rightWheels").getResource();
-                RegulatedMotor leftWheels = (RegulatedMotor) resources.get("leftWheels").getResource();
+                RegulatedMotor rightWheels = getResource("rightWheels", RegulatedMotor.class);
+                RegulatedMotor leftWheels = getResource("leftWheels", RegulatedMotor.class);
                 // rotate
                 rightWheels.stop();
                 leftWheels.stop();
             }
         };
 
-        // init jobs
+        // plan jobs
         scheduler.planJob(rotateJob);
+        scheduler.planJob(stopRotateJob, 5000);
+        scheduler.planJob(shootJob, 5000);
+        scheduler.planJob(shootStopJob, 10000);
 
         // run
-        long start = System.currentTimeMillis();
-        while (true) {
-            scheduler.executeNext();
-            if (System.currentTimeMillis() > start + 5000) {
-                scheduler.planJob(stop);
-                scheduler.planJob(shootJob);
-            }
-
-            if (System.currentTimeMillis() > start + 10000) {
-                scheduler.planJob(shootStopJob);
-            }
-            if (System.currentTimeMillis() > start + 15000) {
-                break;
-            }
-        }
-
+        scheduler.run(15000);
     }
 
 }

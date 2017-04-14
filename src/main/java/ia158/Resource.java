@@ -4,7 +4,7 @@ package ia158;
  * Resource of the robot, which is used by jobs.
  */
 public class Resource {
-    private String name;
+    private     String name;
     private boolean locked;
     private Object resource;
 
