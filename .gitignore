@@ -20,3 +20,7 @@ hs_err_pid*
 
 # ignore gradle build directory
 build/
+
+local.properties
+
+*.iml

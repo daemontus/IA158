@@ -20,18 +20,10 @@ public class ReceiveJob extends Job {
         try {
             socket.receive(packet);
         } catch (IOException e) {
-            //TODO
             e.printStackTrace();
         }
-        if (buffer[0] == 0) {
-            scheduler.planJob(new ControlJob(0, ControlJob.Action.NONE));
-        } else if (buffer[0] == 1) {
-            scheduler.planJob(new ControlJob(0, ControlJob.Action.LEFT));
-        } else if (buffer[0] == 2) {
-            scheduler.planJob(new ControlJob(0, ControlJob.Action.RIGHT));
-        } else {
-            throw new IllegalStateException("wtf are you sending me? "+buffer[0]);
-        }
+        ControlJob.Action action = ControlJob.Action.fromByte(buffer[0]);
+        scheduler.planJob(new ControlJob(0, action));
     }
 
 
