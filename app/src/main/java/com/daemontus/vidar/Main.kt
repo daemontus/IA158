@@ -45,7 +45,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private val robot = "10.0.1.255"
     @Suppress("unused")
     private val eduroam = "147.251.45.255"
-    private val broadcastAddress = eduroam
+    private val broadcastAddress = robot
     private val port = 9999
 
     enum class Action {
