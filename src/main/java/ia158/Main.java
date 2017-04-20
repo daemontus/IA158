@@ -13,13 +13,15 @@ public class Main {
         RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
-        FixedPrirotyScheduler scheduler = new FixedPrirotyScheduler();
+        MutableLong lostTargetTime = null;
+        FixedPriorityScheduler scheduler = new FixedPriorityScheduler();
+        scheduler.addResource("lostTargetTime", lostTargetTime);
         scheduler.addResource("rightWheels", rightWheels);
         scheduler.addResource("leftWheels", leftWheels);
         scheduler.addResource("shoot", shoot);
 
         // prepare jobs
-        Job rotateJob = new Job(5) {
+        Job rotateJob = new Job(10) {
             @Override
             public void run() {
                 // get resources
@@ -48,13 +50,13 @@ public class Main {
             }
         };
 
-        Job stopRotateJob = new Job(6) {
+        Job stopRotateJob = new Job(10) {
             @Override
             public void run() {
                 // get resources
                 RegulatedMotor rightWheels = getResource("rightWheels", RegulatedMotor.class);
                 RegulatedMotor leftWheels = getResource("leftWheels", RegulatedMotor.class);
-                // rotate
+                // stop rotate
                 rightWheels.stop();
                 leftWheels.stop();
             }
@@ -62,12 +64,11 @@ public class Main {
 
         // plan jobs
         scheduler.planJob(rotateJob);
-        scheduler.planJob(stopRotateJob, 5000);
-        scheduler.planJob(shootJob, 5000);
-        scheduler.planJob(shootStopJob, 10000);
+        scheduler.planTask(new ReceiveJob(10), 20);
+        scheduler.planJob(stopRotateJob, 15000);
 
         // run
-        scheduler.run(15000);
+        scheduler.run(16000);
     }
 
 }

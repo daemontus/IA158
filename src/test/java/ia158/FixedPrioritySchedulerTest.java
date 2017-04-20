@@ -11,19 +11,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Testing the FixedPriorityScheduler.
  */
-class FixedPrirotySchedulerTest {
+class FixedPrioritySchedulerTest {
 
     @Test
     void run() {
         // Initialization
         File resource1 = new File("a");
         List<String> stamps = new ArrayList<>();
-        FixedPrirotyScheduler scheduler = new FixedPrirotyScheduler();
+        FixedPriorityScheduler scheduler = new FixedPriorityScheduler();
         scheduler.addResource("r1", resource1);
         scheduler.addResource("stamps", stamps);
 
         // prepare jobs
-        Job firstJob = new Job(5) {
+        Job firstJob = new Job(10) {
             @Override
             public void run() {
                 // get resources
@@ -34,7 +34,7 @@ class FixedPrirotySchedulerTest {
             }
         };
 
-        Job secondJob = new Job(11) {
+        Job secondJob = new Job(9) {
             @Override
             public void run() {
                 List stamps = getResource("stamps", List.class);
@@ -60,18 +60,20 @@ class FixedPrirotySchedulerTest {
 
         // plan jobs
         scheduler.planJob(firstJob);
-        scheduler.planJob(secondJob, 500);
-        scheduler.planJob(thirdJob, 500);
-        scheduler.planJob(forthJob, 1000);
+        scheduler.planJob(secondJob, 30);
+        scheduler.planJob(thirdJob, 30);
+        scheduler.planTask(forthJob, 20);
 
         // run
-        scheduler.run(1500);
+        scheduler.run(50);
 
         // assert
         List<String> expectedOrder = new ArrayList<>();
         expectedOrder.add("first");
-        expectedOrder.add("second");
+        expectedOrder.add("forth");
+        expectedOrder.add("forth");
         expectedOrder.add("third");
+        expectedOrder.add("second");
         expectedOrder.add("forth");
         assertEquals(expectedOrder, scheduler.getResource("stamps", List.class));
     }

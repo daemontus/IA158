@@ -6,15 +6,17 @@ import java.util.*;
  * Scheduler for jobs to be executed on the robot.
  * Accepts jobs in a queue and executes them according their priority.
  */
-public class FixedPrirotyScheduler {
+public class FixedPriorityScheduler {
 
     private Queue<Job> jobs = new PriorityQueue<>(Comparator.comparingInt(Job::getPriority).reversed());
     private Map<Long, List<Job>> postponedJobs = new HashMap<>();
+    private Map<Job, Long> tasks = new HashMap<>();
+
 
     private Map<java.lang.String, Resource> resources = new HashMap<>();
     private long startTime;
 
-    public FixedPrirotyScheduler() {
+    public FixedPriorityScheduler() {
         startTime = System.currentTimeMillis();
     }
 
@@ -45,6 +47,10 @@ public class FixedPrirotyScheduler {
                 Job job = jobs.poll();
                 job.setResources(resources);
                 job.run();
+                // plan another job if this is job of some task
+                if (tasks.containsKey(job)) {
+                    planJob(job, System.currentTimeMillis() - startTime + tasks.get(job));
+                }
             }
         }
     }
@@ -62,6 +68,11 @@ public class FixedPrirotyScheduler {
         } else {
             jobs.add(job);
         }
+    }
+
+    public void planTask(Job job, long period) {
+        tasks.put(job, period);
+        jobs.add(job);
     }
 
 }

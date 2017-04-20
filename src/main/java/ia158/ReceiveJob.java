@@ -16,7 +16,7 @@ public class ReceiveJob extends Job {
     @Override
     public void run() {
         DatagramSocket socket = getResource("socket", DatagramSocket.class);
-        FixedPrirotyScheduler scheduler = getResource("scheduler", FixedPrirotyScheduler.class);
+        FixedPriorityScheduler scheduler = getResource("scheduler", FixedPriorityScheduler.class);
         try {
             socket.receive(packet);
         } catch (IOException e) {
