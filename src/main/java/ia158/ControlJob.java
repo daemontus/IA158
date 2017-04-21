@@ -49,6 +49,7 @@ public class ControlJob extends Job {
                 // move left
                 rightWheels.rotate(10);
                 leftWheels.rotate(-10);
+                lostTargetTime.set(null);
                 break;
             case RIGHT:
                 // stop rotating
@@ -57,18 +58,21 @@ public class ControlJob extends Job {
                 // move right
                 rightWheels.rotate(-10);
                 leftWheels.rotate(10);
+                lostTargetTime.set(null);
                 break;
             case SHOOT:
                 scheduler.planJob(SHOOT_JOB);
+                lostTargetTime.set(null);
+                break;
             case NONE:
                 if (lostTargetTime.get() == null) {
                     lostTargetTime.set(System.currentTimeMillis());
                     break;
                 }
                 if (System.currentTimeMillis() - lostTargetTime.get() > START_SEARCHING_TIME) {
-                    // start rotating
+                    // start rotating and searching
                     rightWheels.forward();
-                    leftWheels.forward();
+                    leftWheels.backward();
                     lostTargetTime.set(null);
                 }
         }
