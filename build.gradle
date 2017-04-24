@@ -25,7 +25,7 @@ task wrapper(type: Wrapper) {
 
 mindstorms {
   // Your Java main class (the class with the method: public static void main(String ... args))
-  main = 'ia158.BroadcastReceiver'
+  main = 'ia158.Main'
 
   // Optional: The IP address from the EV3 brick. Default value is 10.0.1.1
   ip = '10.0.1.1'
@@ -38,4 +38,27 @@ mindstorms {
 
   // Optional: the directory on the EV3 brick where the applications will be stored. Default is /home/lejos/programs
   home = '/home/lejos/programs'
+}
+
+project.task(dependsOn: 'copyToRobot', group: 'mindstorms', 'launchWindows') << {
+
+  ant.lifecycleLogLevel = AntBuilder.AntMessagePriority.INFO
+
+  ant.taskdef(
+          name: 'sshexec',
+          classname: 'org.apache.tools.ant.taskdefs.optional.ssh.SSHExec',
+          classpath: configurations.scp.asPath)
+
+  File file = new File(buildDir, 'libs')
+          .listFiles()
+          .find { it.name.endsWith '.jar' }
+  String application = new File("${project.mindstorms.home}", file.getName()).absolutePath
+
+  ant.sshexec(
+          username: "${project.mindstorms.user}",
+          password: "${project.mindstorms.password}",
+          host: "${project.mindstorms.ip}",
+          command: "jrun -cp ${project.mindstorms.home}/${file.getName()} ${project.mindstorms.main}",
+          trust: true
+  )
 }

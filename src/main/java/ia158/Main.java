@@ -32,6 +32,7 @@ public class Main {
         DatagramSocket socket = new DatagramSocket(9999, group);
         socket.setSoTimeout(10);    // timeout is 10ms - half the period
         scheduler.addResource("socket", socket);
+        scheduler.addResource("scheduler", scheduler);
 
         scheduler.planTask(new ReceiveJob(0), 20);
 
