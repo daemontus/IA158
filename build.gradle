@@ -25,7 +25,7 @@ task wrapper(type: Wrapper) {
 
 mindstorms {
   // Your Java main class (the class with the method: public static void main(String ... args))
-  main = 'ia158.Main'
+  main = 'ia158.BroadcastReceiver'
 
   // Optional: The IP address from the EV3 brick. Default value is 10.0.1.1
   ip = '10.0.1.1'

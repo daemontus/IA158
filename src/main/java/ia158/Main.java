@@ -34,10 +34,10 @@ public class Main {
         scheduler.addResource("socket", socket);
         scheduler.addResource("scheduler", scheduler);
 
-        scheduler.planTask(new ReceiveJob(0), 20);
+        scheduler.planTask(new ReceiveJob(0), 100);
 
         // run
-        scheduler.run(16000);
+        scheduler.run(60000);
 
         socket.close();
     }
