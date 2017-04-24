@@ -5,70 +5,40 @@ import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 import lejos.robotics.RegulatedMotor;
 
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+
 public class Main {
 
-    public static void main(String[] args) {
+    private static String broadcastIP = "10.0.1.255";
+
+    public static void main(String[] args) throws SocketException, UnknownHostException {
 
         // Initialization
         RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
-        MutableLong lostTargetTime = null;
+        MutableLong lostTargetTime = new MutableLong();
         FixedPriorityScheduler scheduler = new FixedPriorityScheduler();
         scheduler.addResource("lostTargetTime", lostTargetTime);
         scheduler.addResource("rightWheels", rightWheels);
         scheduler.addResource("leftWheels", leftWheels);
         scheduler.addResource("shoot", shoot);
 
-        // prepare jobs
-        Job rotateJob = new Job(10) {
-            @Override
-            public void run() {
-                // get resources
-                RegulatedMotor rightWheels = getResource("rightWheels", RegulatedMotor.class);
-                RegulatedMotor leftWheels = getResource("leftWheels", RegulatedMotor.class);
-                // rotate
-                rightWheels.forward();
-                leftWheels.backward();
-            }
-        };
+        // Connection initialization
+        InetAddress group = InetAddress.getByName(broadcastIP);
+        DatagramSocket socket = new DatagramSocket(9999, group);
+        socket.setSoTimeout(10);    // timeout is 10ms - half the period
+        scheduler.addResource("socket", socket);
 
-        Job shootJob = new Job(10) {
-            @Override
-            public void run() {
-                RegulatedMotor shoot = getResource("shoot", RegulatedMotor.class);
-
-                shoot.forward();
-            }
-        };
-        Job shootStopJob = new Job(10) {
-            @Override
-            public void run() {
-                RegulatedMotor shoot = getResource("shoot", RegulatedMotor.class);
-
-                shoot.stop();
-            }
-        };
-
-        Job stopRotateJob = new Job(10) {
-            @Override
-            public void run() {
-                // get resources
-                RegulatedMotor rightWheels = getResource("rightWheels", RegulatedMotor.class);
-                RegulatedMotor leftWheels = getResource("leftWheels", RegulatedMotor.class);
-                // stop rotate
-                rightWheels.stop();
-                leftWheels.stop();
-            }
-        };
-
-        // plan jobs
-        scheduler.planJob(rotateJob);
-        scheduler.planTask(new ReceiveJob(10), 20);
-        scheduler.planJob(stopRotateJob, 15000);
+        scheduler.planTask(new ReceiveJob(0), 20);
 
         // run
         scheduler.run(16000);
+
+        socket.close();
     }
 
 }

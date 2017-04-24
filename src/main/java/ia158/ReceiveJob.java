@@ -3,6 +3,7 @@ package ia158;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.SocketTimeoutException;
 
 public class ReceiveJob extends Job {
 
@@ -19,11 +20,15 @@ public class ReceiveJob extends Job {
         FixedPriorityScheduler scheduler = getResource("scheduler", FixedPriorityScheduler.class);
         try {
             socket.receive(packet);
+            ControlJob.Action action = ControlJob.Action.fromByte(buffer[0]);
+            scheduler.planJob(new ControlJob(0, action));
+            System.out.println("Action: "+action);
         } catch (IOException e) {
-            e.printStackTrace();
+            if (!(e instanceof SocketTimeoutException)) {
+                e.printStackTrace();
+            }
+            System.out.println("No action");
         }
-        ControlJob.Action action = ControlJob.Action.fromByte(buffer[0]);
-        scheduler.planJob(new ControlJob(0, action));
     }
 
 
