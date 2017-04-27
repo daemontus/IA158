@@ -4,6 +4,9 @@ import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.SeekBar
+import android.widget.Switch
 import org.opencv.android.*
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
@@ -107,6 +110,13 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
     // holds reference to the rendering surface
     lateinit var cameraView: JavaCameraView
+    lateinit var calibrateView: Button
+    lateinit var HtoleranceView: SeekBar
+    lateinit var StoleranceView: SeekBar
+    lateinit var VtoleranceView: SeekBar
+    lateinit var showImageView: Switch
+
+    private var color: Scalar? = Scalar(37.0, 120.0, 239.0)
 
     // used when initializing OpenCV
     private val loadCallback = object : BaseLoaderCallback(this) {
@@ -121,6 +131,20 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     // should be called in onCreate
     private fun createOpenCV() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        showImageView = findViewById(R.id.show_image) as Switch
+        calibrateView = findViewById(R.id.calibrate) as Button
+        calibrateView.setOnClickListener {
+            color = null
+        }
+        HtoleranceView = findViewById(R.id.H_tolerance) as SeekBar
+        HtoleranceView.max = 30
+        HtoleranceView.progress = 5
+        StoleranceView = findViewById(R.id.S_tolerance) as SeekBar
+        StoleranceView.max = 100
+        StoleranceView.progress = 40
+        VtoleranceView = findViewById(R.id.V_tolerance) as SeekBar
+        VtoleranceView.max = 100
+        VtoleranceView.progress = 40
         cameraView = findViewById(R.id.camera) as JavaCameraView
         cameraView.setCvCameraViewListener(this)
     }
@@ -148,14 +172,21 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     // holds the image that is being analysed for objects
     private var thresholded: Mat? = null
 
+    private var output: Mat? = null
+
+    private val one = Scalar(1.0, 1.0, 1.0)
+
     // init all matrices
     override fun onCameraViewStarted(width: Int, height: Int) {
         hsv = Mat(width, height, CvType.CV_8UC4)
         bgr = Mat(width, height, CvType.CV_8UC4)
         thresholded = Mat(width, height, CvType.CV_8UC4)
+        output = Mat(width, height, CvType.CV_8UC4)
     }
 
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
+        val hsv = hsv!!
+        val bgr = bgr!!
         // convert camera image to HSV
         Imgproc.cvtColor(inputFrame.rgba(), bgr, Imgproc.COLOR_RGBA2BGR)
         Imgproc.cvtColor(bgr, hsv, Imgproc.COLOR_BGR2HSV)
@@ -166,7 +197,34 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         // saturation - 0-255
         // value - 0-255
         // tennis ball (bright) - 37/120/239
-        Core.inRange(hsv, Scalar(30.0, 104.0, 104.0), Scalar(40.0, 255.0, 255.0), thresholded)
+        if (color == null) {
+            val minDim = Math.min(hsv.width(), hsv.height())
+            val cutWidth = (hsv.width() - minDim) / 2
+            val cutHeight = (hsv.height() - minDim) / 2
+            Log.d(TAG, "Hsv size: ${hsv.width()} ${hsv.height()}")
+            Log.d(TAG, "Ranges: ${cutWidth} ${ cutWidth + minDim} ; $cutHeight ${ cutHeight + minDim }")
+            color = Core.mean(Mat(hsv, Range(cutHeight, cutHeight + minDim), Range(cutWidth, cutWidth + minDim)))
+            //color = Scalar(hsv[hsv.width()/2, hsv.height()/2])
+            Log.d(TAG, "New color: ${color}")
+        }
+        val color = this.color!!
+        Log.d(TAG, "Color $color")
+        val min = Scalar(
+                color.`val`[0] - HtoleranceView.progress,
+                color.`val`[1] - StoleranceView.progress,
+                color.`val`[2] - VtoleranceView.progress
+        )
+        val max = Scalar(
+                color.`val`[0] + HtoleranceView.progress,
+                color.`val`[1] + StoleranceView.progress,
+                color.`val`[2] + VtoleranceView.progress
+        )
+        Log.d(TAG, "Min: $min")
+        Log.d(TAG, "Max: $max")
+        //Core.inRange(hsv, Scalar(30.0, 104.0, 104.0), Scalar(40.0, 255.0, 255.0), thresholded)
+        Core.inRange(hsv, min, max, thresholded)
+        //draw the "finder"
+        Imgproc.rectangle(hsv, Point(hsv.width()/2 - 5.0, hsv.height()/2 - 5.0), Point(hsv.width()/2 + 5.0, hsv.height()/2 + 5.0), Scalar(250.0, 250.0, 250.0))
 
         // This should smoothen the image a little so that the small fragments don't
         // disturb the results.
@@ -186,7 +244,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         val dArea = moments._m00
 
         val percentX: Double
-        if (dArea >= 10000.0) {
+        if (dArea >= 1000.0) {
             val posX = dM10 / dArea
             val posY = dM01 / dArea
 
@@ -194,6 +252,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             percentX = (posX / thresholded.width()) * 100.0
 
             // draw a rectangle around the object (the size - 200x200 - is arbitrary)
+            Imgproc.rectangle(hsv, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
             Imgproc.rectangle(thresholded, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
         } else {
             percentX = -1.0
@@ -207,7 +266,11 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
             else -> actionSubject.onNext(Action.NONE)
         }
 
-        return thresholded
+        return if (showImageView.isChecked) {
+            hsv
+        } else {
+            thresholded
+        }
     }
 
     // clean up
