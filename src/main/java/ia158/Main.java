@@ -16,10 +16,12 @@ import java.net.InetAddress;
 public class Main {
 
     private static long START_SEARCHING_TIME = 3000;
+    private static long TIME_BEFORE_SHOOT = 1000;
 
     private static String eduroam = "147.251.45.255";
     private static String robot = "10.0.1.255";
     private static Long lostTargetTime;
+    private static Long targetingTime;
     private static Action lastAction = Action.NONE;
 
     public static void main(String[] args) throws IOException {
@@ -29,6 +31,7 @@ public class Main {
         DatagramSocket socket = new DatagramSocket(9999, group);
         long start = System.currentTimeMillis();
         lostTargetTime = start;
+        targetingTime = null;
 
         // Motors
         RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
@@ -49,6 +52,7 @@ public class Main {
             switch (action) {
                 case RIGHT:
                     lostTargetTime = null;
+                    targetingTime = null;
                     if (lastAction.equals(Action.RIGHT)) {
                         break;
                     }
@@ -59,6 +63,7 @@ public class Main {
                     break;
                 case LEFT:
                     lostTargetTime = null;
+                    targetingTime = null;
                     if (lastAction.equals(Action.LEFT)) {
                         break;
                     }
@@ -68,17 +73,23 @@ public class Main {
                     lastAction = action;
                     break;
                 case SHOOT:
-                    lostTargetTime = null;
                     // stop rotating
                     rightWheels.stop(true);
                     leftWheels.stop(true);
-                    // shoot
-                    shoot.rotate(360, true);
+
+                    lostTargetTime = null;
+                    if (targetingTime == null) {
+                        targetingTime = System.currentTimeMillis();
+                    } else if (System.currentTimeMillis() > targetingTime + TIME_BEFORE_SHOOT) {
+                        shoot.rotate(360, true);
+                        targetingTime = null;
+                    }
                     lastAction = action;
                     break;
                 case NONE:
+                    targetingTime = null;
                     if (Action.SHOOT.equals(lastAction)) {
-                        if (System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
+                        if (lostTargetTime != null && System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
                             // start searching
                             rightWheels.backward();
                             leftWheels.forward();
