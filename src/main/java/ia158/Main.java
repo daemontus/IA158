@@ -5,41 +5,93 @@ import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 import lejos.robotics.RegulatedMotor;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 
+/**
+ * Main class for the robot controll.
+ */
 public class Main {
 
-    private static String broadcastIP = "10.0.1.255";
+    private static long START_SEARCHING_TIME = 3000;
 
-    public static void main(String[] args) throws SocketException, UnknownHostException {
+    private static String eduroam = "147.251.45.255";
+    private static String robot = "10.0.1.255";
+    private static Long lostTargetTime;
+    private static Action lastAction = Action.NONE;
 
-        // Initialization
+    public static void main(String[] args) throws IOException {
+
+        // Init
+        InetAddress group = InetAddress.getByName(robot);
+        DatagramSocket socket = new DatagramSocket(9999, group);
+        long start = System.currentTimeMillis();
+        lostTargetTime = start;
+
+        // Motors
         RegulatedMotor rightWheels = new EV3LargeRegulatedMotor(MotorPort.A);
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
-        MutableLong lostTargetTime = new MutableLong();
-        FixedPriorityScheduler scheduler = new FixedPriorityScheduler();
-        scheduler.addResource("lostTargetTime", lostTargetTime);
-        scheduler.addResource("rightWheels", rightWheels);
-        scheduler.addResource("leftWheels", leftWheels);
-        scheduler.addResource("shoot", shoot);
 
-        // Connection initialization
-        InetAddress group = InetAddress.getByName(broadcastIP);
-        DatagramSocket socket = new DatagramSocket(9999, group);
-        socket.setSoTimeout(10);    // timeout is 10ms - half the period
-        scheduler.addResource("socket", socket);
-        scheduler.addResource("scheduler", scheduler);
 
-        scheduler.planTask(new ReceiveJob(0), 100);
+        // Run
+        while (System.currentTimeMillis() < start + 60000) {
+            // receive packet
+            byte[] buffer = new byte[1];
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            socket.receive(packet);
 
-        // run
-        scheduler.run(60000);
+            Action action = Action.fromByte(buffer[0]);
+            System.out.println("Action: "+action);
 
-        socket.close();
+            switch (action) {
+                case RIGHT:
+                    lostTargetTime = null;
+                    if (lastAction.equals(Action.RIGHT)) {
+                        break;
+                    }
+                    // start rotating right
+                    rightWheels.backward();
+                    leftWheels.forward();
+                    lastAction = action;
+                    break;
+                case LEFT:
+                    lostTargetTime = null;
+                    if (lastAction.equals(Action.LEFT)) {
+                        break;
+                    }
+                    // start rotating left
+                    rightWheels.forward();
+                    leftWheels.backward();
+                    lastAction = action;
+                    break;
+                case SHOOT:
+                    lostTargetTime = null;
+                    // stop rotating
+                    rightWheels.stop(true);
+                    leftWheels.stop(true);
+                    // shoot
+                    shoot.rotate(360, true);
+                    lastAction = action;
+                    break;
+                case NONE:
+                    if (Action.SHOOT.equals(lastAction)) {
+                        if (System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
+                            // start searching
+                            rightWheels.backward();
+                            leftWheels.forward();
+                            lastAction = Action.RIGHT;
+                            lostTargetTime = null;
+                        } else if (lostTargetTime == null) {
+                            lostTargetTime = System.currentTimeMillis();
+                        }
+                    }
+                    break;
+            }
+
+        }
+
     }
-
 }
