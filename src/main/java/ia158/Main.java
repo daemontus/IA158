@@ -38,6 +38,8 @@ public class Main {
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
 
+        rightWheels.setSpeed(rightWheels.getSpeed() / 2);
+        leftWheels.setSpeed(leftWheels.getSpeed() / 2);
 
         // Run
         while (System.currentTimeMillis() < start + 60000) {
