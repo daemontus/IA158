@@ -50,7 +50,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private val eduroam = "147.251.45.255"
     private val broadcastAddress = robot
     private val port = 9999
-
+/*
     enum class Action {
         LEFT, RIGHT, SHOOT, NONE;
 
@@ -64,10 +64,10 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
 
     }
-
+*/
     // subject responsible for transferring actions to the background thread observer
     // which will send them as a broadcast
-    private val actionSubject = PublishSubject.create<Action>()
+    private val actionSubject = PublishSubject.create<Byte>()
 
     // holds current broadcast subscription - unsubscribe to stop sending messages
     private var broadcastTask: Subscription? = null
@@ -75,7 +75,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private fun resumeBroadcast() {
         // This cluster-fuck should ensure the socket is closed as soon as the subscription
         // is canceled.
-        broadcastTask = Observable.using<Action, DatagramSocket>(
+        broadcastTask = Observable.using<Byte, DatagramSocket>(
                 // resource factory
                 { DatagramSocket(port) },
                 // observable factory
@@ -83,11 +83,11 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
                     // create new observable that will send a broadcast on each action
                     // while throttling the actions and dropping them if they are still too fast.
                     actionSubject
-                            .throttleLast(20, TimeUnit.MILLISECONDS)
+                            .throttleLast(50, TimeUnit.MILLISECONDS)
                             .onBackpressureDrop()
                             .observeOn(Schedulers.io())
                             .doOnNext { action ->
-                                Log.d(TAG, "Send action: $action")
+                                println("send action: $action")
                                 val buffer = ByteArray(1)
                                 buffer[0] = action.toByte()
                                 val group = InetAddress.getByName(broadcastAddress)
@@ -259,12 +259,15 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }
 
         // publish the current relative position as an action
-        when (percentX) {
-            in (0..40) -> actionSubject.onNext(Action.LEFT)
-            in (45..55) -> actionSubject.onNext(Action.SHOOT)
-            in (60..100) -> actionSubject.onNext(Action.RIGHT)
-            else -> actionSubject.onNext(Action.NONE)
-        }
+        println("action: $percentX")
+        /*val action = when (percentX) {
+            in (0..45) -> Action.LEFT// actionSubject.onNext(Action.LEFT)
+            in (45..55) -> Action.SHOOT// actionSubject.onNext(Action.SHOOT)
+            in (55..100) -> Action.RIGHT// actionSubject.onNext(Action.RIGHT)
+            else -> Action.NONE// actionSubject.onNext(Action.NONE)
+        }*/
+
+        actionSubject.onNext((if (percentX in (0..100)) percentX else -1.0).toByte())
 
         return if (showImageView.isChecked) {
             hsv
