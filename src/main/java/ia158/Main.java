@@ -22,7 +22,7 @@ public class Main {
     private static String robot = "10.0.1.255";
     private static Long lostTargetTime;
     private static Long targetingTime;
-    private static Action lastAction = Action.NONE;
+    private static Action lastAction = new Action(-1);
 
     public static void main(String[] args) throws IOException {
 
@@ -38,8 +38,7 @@ public class Main {
         RegulatedMotor leftWheels = new EV3LargeRegulatedMotor(MotorPort.B);
         RegulatedMotor shoot = new EV3MediumRegulatedMotor(MotorPort.C);
 
-        rightWheels.setSpeed(rightWheels.getSpeed() / 2);
-        leftWheels.setSpeed(leftWheels.getSpeed() / 2);
+        float MAX_SPEED = rightWheels.getMaxSpeed();
 
         // Run
         while (System.currentTimeMillis() < start + 60000) {
@@ -51,57 +50,60 @@ public class Main {
             Action action = Action.fromByte(buffer[0]);
             System.out.println("Action: "+action);
 
-            switch (action) {
-                case RIGHT:
-                    lostTargetTime = null;
-                    targetingTime = null;
-                    if (lastAction.equals(Action.RIGHT)) {
-                        break;
-                    }
+            if (action.isRight()) {
+                lostTargetTime = null;
+                targetingTime = null;
+                rightWheels.setSpeed(Math.round(((action.getValue() - 50) / 50) * MAX_SPEED));
+                leftWheels.setSpeed(Math.round(((action.getValue() - 50) / 50) * MAX_SPEED));
+                if (!lastAction.isRight()) {
                     // start rotating right
                     rightWheels.backward();
                     leftWheels.forward();
                     lastAction = action;
-                    break;
-                case LEFT:
-                    lostTargetTime = null;
-                    targetingTime = null;
-                    if (lastAction.equals(Action.LEFT)) {
-                        break;
-                    }
+                }
+            }
+
+            if (action.isLeft()) {
+                lostTargetTime = null;
+                targetingTime = null;
+                rightWheels.setSpeed(Math.round(((action.getValue() + 5)/ 45) * MAX_SPEED));
+                leftWheels.setSpeed(Math.round(((action.getValue() + 5)/ 45) * MAX_SPEED));
+                if (!lastAction.isLeft()) {
                     // start rotating left
                     rightWheels.forward();
                     leftWheels.backward();
                     lastAction = action;
-                    break;
-                case SHOOT:
-                    // stop rotating
-                    rightWheels.stop(true);
-                    leftWheels.stop(true);
+                }
+            }
 
-                    lostTargetTime = null;
-                    if (targetingTime == null) {
-                        targetingTime = System.currentTimeMillis();
-                    } else if (System.currentTimeMillis() > targetingTime + TIME_BEFORE_SHOOT) {
-                        shoot.rotate(360, true);
-                        targetingTime = null;
-                    }
-                    lastAction = action;
-                    break;
-                case NONE:
+            if (action.isShoot()) {
+                // stop rotating
+                rightWheels.stop(true);
+                leftWheels.stop(true);
+
+                lostTargetTime = null;
+                if (targetingTime == null) {
+                    targetingTime = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() > targetingTime + TIME_BEFORE_SHOOT) {
+                    shoot.rotate(360, true);
                     targetingTime = null;
-                    if (Action.SHOOT.equals(lastAction)) {
-                        if (lostTargetTime != null && System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
-                            // start searching
-                            rightWheels.backward();
-                            leftWheels.forward();
-                            lastAction = Action.RIGHT;
-                            lostTargetTime = null;
-                        } else if (lostTargetTime == null) {
-                            lostTargetTime = System.currentTimeMillis();
-                        }
+                }
+                lastAction = action;
+            }
+
+            if (action.isNone()) {
+                targetingTime = null;
+                if (lastAction.isShoot()) {
+                    if (lostTargetTime != null && System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
+                        // start searching
+                        rightWheels.backward();
+                        leftWheels.forward();
+                        lastAction = new Action(90);
+                        lostTargetTime = null;
+                    } else if (lostTargetTime == null) {
+                        lostTargetTime = System.currentTimeMillis();
                     }
-                    break;
+                }
             }
 
         }

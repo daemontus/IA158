@@ -30,5 +30,9 @@ class Action {
     public boolean isRight() {
         return  value > 55 && value <= 100;
     }
+
+    public int getValue() {
+        return this.value;
+    }
     
 }
