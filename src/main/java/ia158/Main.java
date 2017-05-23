@@ -76,7 +76,6 @@ public class Main {
                 rightWheels.setSpeed(Math.round(rightWheels.getMaxSpeed()) / 2);
                 rightWheels.setSpeed(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
                 leftWheels.setSpeed(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
-                leftWheels.
                 System.out.println(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
                 System.out.println(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
                 if (!lastAction.isLeft()) {
