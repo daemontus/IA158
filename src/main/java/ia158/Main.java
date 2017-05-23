@@ -31,7 +31,7 @@ public class Main {
 
     // TESTING
     private static byte get_horizontal(long starttime) {
-        return 50;
+        return -1;
     }
 
     private static byte get_vertical(long starttime) {
@@ -63,10 +63,12 @@ public class Main {
         shoot = new EV3LargeRegulatedMotor(MotorPort.D);
         aim = new EV3MediumRegulatedMotor(MotorPort.C);
 
-        float MAX_SPEED = direction.getMaxSpeed() / 3;
-        direction.setSpeed(Math.round(MAX_SPEED) / 2);
+        float MAX_SPEED_DIR = direction.getMaxSpeed() / 3;
+        float MAX_SPEED_AIM = aim.getMaxSpeed() / 10;
+        direction.setSpeed(Math.round(MAX_SPEED_DIR) / 2);
+        aim.setSpeed(Math.round(MAX_SPEED_AIM));
 
-        System.out.println("MAX SPEED" + MAX_SPEED);
+        System.out.println("MAX SPEED" + MAX_SPEED_DIR);
 
         RegulatedMotorListener logListener = new RegulatedMotorListener() {
             @Override
@@ -93,6 +95,7 @@ public class Main {
 
             // TESTING
             buffer[0] = get_horizontal(start);
+            buffer[1] = get_vertical(start);
             // TESTING
 
             Action action = Action.fromByte(buffer[0], buffer[1]);
@@ -101,8 +104,8 @@ public class Main {
             if (action.isRight()) {
                 lostTargetTime = null;
                 targetingTime = null;
-                direction.setSpeed(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED));
-                System.out.println(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED));
+                direction.setSpeed(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED_DIR));
+                System.out.println(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED_DIR));
                 if (!lastAction.isRight()) {
                     // start rotating right
                     direction.forward();
@@ -113,8 +116,8 @@ public class Main {
             if (action.isLeft()) {
                 lostTargetTime = null;
                 targetingTime = null;
-                direction.setSpeed(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED));
-                System.out.println(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED));
+                direction.setSpeed(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED_DIR));
+                System.out.println(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED_DIR));
                 if (!lastAction.isLeft()) {
                     // start rotating left
                     direction.backward();
