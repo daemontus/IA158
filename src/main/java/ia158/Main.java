@@ -4,9 +4,11 @@ import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 import lejos.robotics.RegulatedMotor;
-import lejos.robotics.RegulatedMotorListener;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 
 /**
  * Main class for the robot controll.
@@ -28,34 +30,11 @@ public class Main {
     private static Long targetingTime;
     private static Action lastAction = new Action(-1, -1);
 
-    // TESTING
-    private static byte get_horizontal(long starttime) {
-        return -1;
-    }
-
-    private static byte get_vertical(long starttime) {
-        int step = 4000;
-        if (System.currentTimeMillis() - starttime < 2*step) {
-            return (byte) 0;
-        }
-        if (System.currentTimeMillis() - starttime < 3*step) {
-            return (byte) 90;
-        }
-        if (System.currentTimeMillis() - starttime < 4*step) {
-            return (byte) 80;
-        }
-        if (System.currentTimeMillis() - starttime < 5*step) {
-            return (byte) 70;
-        }
-        return 50;
-    }
-    // TESTING
-
     public static void main(String[] args) throws IOException {
 
         // Init
-        //InetAddress group = InetAddress.getByName(robot);
-        //DatagramSocket socket = new DatagramSocket(9999, group);
+        InetAddress group = InetAddress.getByName(robot);
+        DatagramSocket socket = new DatagramSocket(9999, group);
         long start = System.currentTimeMillis();
         lostTargetTime = start;
         targetingTime = null;
@@ -66,23 +45,16 @@ public class Main {
         aim = new EV3MediumRegulatedMotor(MotorPort.C);
 
         float MAX_SPEED_DIR = direction.getMaxSpeed() / 3;
-        float MAX_SPEED_AIM = aim.getMaxSpeed() / 15;
+        float MAX_SPEED_AIM = aim.getMaxSpeed() / 10;
         direction.setSpeed(Math.round(MAX_SPEED_DIR) / 2);
         aim.setSpeed(Math.round(MAX_SPEED_AIM));
-
-        System.out.println("MAX SPEED" + MAX_SPEED_DIR);
 
         // Run
         while (System.currentTimeMillis() < start + 22000) {
             // receive packet
             byte[] buffer = new byte[2];
-            //DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            //socket.receive(packet);
-
-            // TESTING
-            buffer[0] = get_horizontal(start);
-            buffer[1] = get_vertical(start);
-            // TESTING
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            socket.receive(packet);
 
             Action action = Action.fromByte(buffer[0], buffer[1]);
             System.out.println("Action: "+action);
