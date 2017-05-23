@@ -5,38 +5,56 @@ package ia158;
  */
 class Action {
 
-    private final int value;
+    private final int horizontal;
+    private final int vertical;
 
-    Action(int value) {
-        this.value = value;
+    Action(int horizontal, int vertical) {
+        this.horizontal = horizontal;
+        this.vertical = vertical;
     }
 
-    static Action fromByte(byte b) {
-        return new Action((int) b);
+    static Action fromByte(byte h, byte v) {
+        return new Action((int) h, (int) v);
     }
 
-    public boolean isNone() {
-        return value == -1;
+    public boolean isHorizontalNone() {
+        return horizontal == -1;
     }
 
     public boolean isShoot() {
-        return value >= 45 && value <= 55;
+        return horizontal >= 45 && horizontal <= 55;
     }
 
     public boolean isLeft() {
-        return value < 45 && value >= 0;
+        return horizontal < 45 && horizontal >= 0;
     }
 
     public boolean isRight() {
-        return  value > 55 && value <= 100;
+        return  horizontal > 55 && horizontal <= 100;
     }
 
-    public int getValue() {
-        return this.value;
+    public boolean isVerticalNone() {
+        return vertical == -1;
+    }
+
+    public boolean isUp() {
+        return vertical > 55 && vertical <= 100;
+    }
+
+    public boolean isDown() {
+        return vertical < 45 && vertical >= 0;
+    }
+
+    public int getHorizontal() {
+        return this.horizontal;
+    }
+
+    public int getVertical() {
+        return vertical;
     }
 
     @Override
     public String toString() {
-        return Integer.toString(value);
+        return "Horizonatal: " + Integer.toString(horizontal) + ", Vertical: " + Integer.toString(vertical);
     }
 }

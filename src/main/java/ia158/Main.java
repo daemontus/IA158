@@ -4,11 +4,9 @@ import lejos.hardware.motor.EV3LargeRegulatedMotor;
 import lejos.hardware.motor.EV3MediumRegulatedMotor;
 import lejos.hardware.port.MotorPort;
 import lejos.robotics.RegulatedMotor;
+import lejos.robotics.RegulatedMotorListener;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 
 /**
  * Main class for the robot controll.
@@ -28,25 +26,24 @@ public class Main {
     private static String robot = "10.0.1.255";
     private static Long lostTargetTime;
     private static Long targetingTime;
-    private static Action lastAction = new Action(-1);
+    private static int aim_angle;
+    private static Action lastAction = new Action(-1, -1);
 
     // TESTING
-    private static byte get_value(long starttime) {
-        int step = 3000;
-        if (System.currentTimeMillis() - starttime < step) {
-            return (byte) 0;
-        }
-        if (System.currentTimeMillis() - starttime < 2*step) {
-            return (byte) 255;
-        }
+    private static byte get_horizontal(long starttime) {
+        return 50;
+    }
+
+    private static byte get_vertical(long starttime) {
+        int step = 4000;
         if (System.currentTimeMillis() - starttime < 3*step) {
             return (byte) 0;
         }
         if (System.currentTimeMillis() - starttime < 4*step) {
-            return (byte) 30;
+            return (byte) 90;
         }
         if (System.currentTimeMillis() - starttime < 5*step) {
-            return (byte) 40;
+            return (byte) 0;
         }
         return 50;
     }
@@ -66,34 +63,49 @@ public class Main {
         shoot = new EV3LargeRegulatedMotor(MotorPort.D);
         aim = new EV3MediumRegulatedMotor(MotorPort.C);
 
-        float MAX_SPEED = direction.getMaxSpeed() / 4;
+        float MAX_SPEED = direction.getMaxSpeed() / 3;
         direction.setSpeed(Math.round(MAX_SPEED) / 2);
 
         System.out.println("MAX SPEED" + MAX_SPEED);
 
+        RegulatedMotorListener logListener = new RegulatedMotorListener() {
+            @Override
+            public void rotationStarted(RegulatedMotor motor, int tachoCount, boolean stalled, long timeStamp) {
+                aim_angle = tachoCount;
+                System.out.println("Aim - Started");
+            }
+
+            @Override
+            public void rotationStopped(RegulatedMotor motor, int tachoCount, boolean stalled, long timeStamp) {
+                aim_angle = tachoCount;
+                System.out.println("Aim - Stopped");
+            }
+        };
+
+        aim.addListener(logListener);
+
         // Run
         while (System.currentTimeMillis() < start + 18000) {
             // receive packet
-            byte[] buffer = new byte[1];
+            byte[] buffer = new byte[2];
             //DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             //socket.receive(packet);
 
             // TESTING
-            buffer[0] = get_value(start);
-            System.out.println("value: " + (int) buffer[0]);
+            buffer[0] = get_horizontal(start);
             // TESTING
 
-            Action action = Action.fromByte(buffer[0]);
+            Action action = Action.fromByte(buffer[0], buffer[1]);
             System.out.println("Action: "+action);
 
             if (action.isRight()) {
                 lostTargetTime = null;
                 targetingTime = null;
-                direction.setSpeed(Math.round(((float) (action.getValue() - 50) / SPEED) * MAX_SPEED));
-                System.out.println(Math.round(((float) (action.getValue() - 50) / SPEED) * MAX_SPEED));
+                direction.setSpeed(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED));
+                System.out.println(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED));
                 if (!lastAction.isRight()) {
                     // start rotating right
-                    direction.backward();
+                    direction.forward();
                     lastAction = action;
                 }
             }
@@ -101,11 +113,11 @@ public class Main {
             if (action.isLeft()) {
                 lostTargetTime = null;
                 targetingTime = null;
-                direction.setSpeed(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
-                System.out.println(Math.round(((float) (50 - action.getValue())/ SPEED) * MAX_SPEED));
+                direction.setSpeed(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED));
+                System.out.println(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED));
                 if (!lastAction.isLeft()) {
                     // start rotating left
-                    direction.forward();
+                    direction.backward();
                     lastAction = action;
                 }
             }
@@ -124,17 +136,33 @@ public class Main {
                 lastAction = action;
             }
 
-            if (action.isNone()) {
+            if (action.isHorizontalNone()) {
                 targetingTime = null;
                 if (lastAction.isShoot()) {
                     if (lostTargetTime != null && System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
                         // start searching
                         direction.forward();
-                        lastAction = new Action(90);
+                        lastAction = new Action(90, -1);
                         lostTargetTime = null;
                     } else if (lostTargetTime == null) {
                         lostTargetTime = System.currentTimeMillis();
                     }
+                }
+            }
+
+            if (action.isUp()) {
+                if (aim_angle < 90) {
+                    aim.forward();
+                } else {
+                    aim.stop(true);
+                }
+            }
+
+            if (action.isDown()) {
+                if (aim_angle > 0) {
+                    aim.backward();
+                } else {
+                    aim.stop(true);
                 }
             }
 
