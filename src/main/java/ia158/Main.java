@@ -26,7 +26,6 @@ public class Main {
     private static String robot = "10.0.1.255";
     private static Long lostTargetTime;
     private static Long targetingTime;
-    private static int aim_angle;
     private static Action lastAction = new Action(-1, -1);
 
     // TESTING
@@ -36,14 +35,17 @@ public class Main {
 
     private static byte get_vertical(long starttime) {
         int step = 4000;
-        if (System.currentTimeMillis() - starttime < 3*step) {
+        if (System.currentTimeMillis() - starttime < 2*step) {
             return (byte) 0;
         }
-        if (System.currentTimeMillis() - starttime < 4*step) {
+        if (System.currentTimeMillis() - starttime < 3*step) {
             return (byte) 90;
         }
+        if (System.currentTimeMillis() - starttime < 4*step) {
+            return (byte) 80;
+        }
         if (System.currentTimeMillis() - starttime < 5*step) {
-            return (byte) 0;
+            return (byte) 70;
         }
         return 50;
     }
@@ -64,30 +66,14 @@ public class Main {
         aim = new EV3MediumRegulatedMotor(MotorPort.C);
 
         float MAX_SPEED_DIR = direction.getMaxSpeed() / 3;
-        float MAX_SPEED_AIM = aim.getMaxSpeed() / 10;
+        float MAX_SPEED_AIM = aim.getMaxSpeed() / 15;
         direction.setSpeed(Math.round(MAX_SPEED_DIR) / 2);
         aim.setSpeed(Math.round(MAX_SPEED_AIM));
 
         System.out.println("MAX SPEED" + MAX_SPEED_DIR);
 
-        RegulatedMotorListener logListener = new RegulatedMotorListener() {
-            @Override
-            public void rotationStarted(RegulatedMotor motor, int tachoCount, boolean stalled, long timeStamp) {
-                aim_angle = tachoCount;
-                System.out.println("Aim - Started");
-            }
-
-            @Override
-            public void rotationStopped(RegulatedMotor motor, int tachoCount, boolean stalled, long timeStamp) {
-                aim_angle = tachoCount;
-                System.out.println("Aim - Stopped");
-            }
-        };
-
-        aim.addListener(logListener);
-
         // Run
-        while (System.currentTimeMillis() < start + 18000) {
+        while (System.currentTimeMillis() < start + 22000) {
             // receive packet
             byte[] buffer = new byte[2];
             //DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -154,19 +140,25 @@ public class Main {
             }
 
             if (action.isUp()) {
-                if (aim_angle < 90) {
+                if (!aim.isStalled()) {
                     aim.forward();
+                    aim.setSpeed(Math.round(((float) (action.getVertical() - 50) / SPEED) * MAX_SPEED_AIM));
                 } else {
                     aim.stop(true);
                 }
             }
 
             if (action.isDown()) {
-                if (aim_angle > 0) {
+                if (!aim.isStalled()) {
                     aim.backward();
+                    aim.setSpeed(Math.round(((float) (50 - action.getVertical())/ SPEED) * MAX_SPEED_AIM));
                 } else {
                     aim.stop(true);
                 }
+            }
+
+            if (action.isVerticalNone()) {
+                aim.stop(true);
             }
 
         }
