@@ -75,7 +75,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     private fun resumeBroadcast() {
         // This cluster-fuck should ensure the socket is closed as soon as the subscription
         // is canceled.
-        broadcastTask = Observable.using<Byte, DatagramSocket>(
+        broadcastTask = Observable.using<List<Byte>, DatagramSocket>(
                 // resource factory
                 { DatagramSocket(port) },
                 // observable factory
@@ -83,14 +83,14 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
                     // create new observable that will send a broadcast on each action
                     // while throttling the actions and dropping them if they are still too fast.
                     actionSubject
+                            .buffer(2)
                             .throttleLast(50, TimeUnit.MILLISECONDS)
                             .onBackpressureDrop()
                             .observeOn(Schedulers.io())
-                            .doOnNext { action ->
-                                println("send action: $action")
-                                val buffer = ByteArray(1)
-                                buffer[0] = action.toByte()
+                            .doOnNext { coords ->
+                                println("send action: $coords")
                                 val group = InetAddress.getByName(broadcastAddress)
+                                val buffer = coords.toByteArray()
                                 val packet = DatagramPacket(buffer, buffer.size, group, 9999)
                                 socket.send(packet)
                             }
@@ -116,7 +116,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     lateinit var VtoleranceView: SeekBar
     lateinit var showImageView: Switch
 
-    private var color: Scalar? = Scalar(37.0, 120.0, 239.0)
+    private var color: Scalar? = Scalar(13.5, 175.0, 250.0) // green Scalar(37.0, 120.0, 239.0)
 
     // used when initializing OpenCV
     private val loadCallback = object : BaseLoaderCallback(this) {
@@ -244,18 +244,21 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         val dArea = moments._m00
 
         val percentX: Double
+        val percentY: Double
         if (dArea >= 1000.0) {
             val posX = dM10 / dArea
             val posY = dM01 / dArea
 
             // relative X position
             percentX = (posX / thresholded.width()) * 100.0
+            percentY = (posY / thresholded.height()) * 100.0
 
             // draw a rectangle around the object (the size - 200x200 - is arbitrary)
             Imgproc.rectangle(hsv, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
             Imgproc.rectangle(thresholded, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
         } else {
             percentX = -1.0
+            percentY = -1.0
         }
 
         // publish the current relative position as an action
@@ -268,6 +271,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         }*/
 
         actionSubject.onNext((if (percentX in (0..100)) percentX else -1.0).toByte())
+        actionSubject.onNext((if (percentY in (0..100)) (100 - percentY) else -1.0).toByte())
 
         return if (showImageView.isChecked) {
             hsv
