@@ -17,6 +17,7 @@ import rx.subjects.PublishSubject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
@@ -84,7 +85,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
                     // while throttling the actions and dropping them if they are still too fast.
                     actionSubject
                             .buffer(2)
-                            .throttleLast(50, TimeUnit.MILLISECONDS)
+                            .throttleLast(100, TimeUnit.MILLISECONDS)
                             .onBackpressureDrop()
                             .observeOn(Schedulers.io())
                             .doOnNext { coords ->
@@ -172,6 +173,8 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
     // holds the image that is being analysed for objects
     private var thresholded: Mat? = null
 
+    private var nativeData: ByteArray? = null
+
     private var output: Mat? = null
 
     private val one = Scalar(1.0, 1.0, 1.0)
@@ -182,6 +185,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         bgr = Mat(width, height, CvType.CV_8UC4)
         thresholded = Mat(width, height, CvType.CV_8UC4)
         output = Mat(width, height, CvType.CV_8UC4)
+        nativeData = ByteArray(width * height)
     }
 
     override fun onCameraFrame(inputFrame: CameraBridgeViewBase.CvCameraViewFrame): Mat {
@@ -226,17 +230,72 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
         //draw the "finder"
         Imgproc.rectangle(hsv, Point(hsv.width()/2 - 5.0, hsv.height()/2 - 5.0), Point(hsv.width()/2 + 5.0, hsv.height()/2 + 5.0), Scalar(250.0, 250.0, 250.0))
 
+        var sumX = 0
+        var sumY = 0
+        var count = 0
+
+        val height = thresholded.height()
+        val width = thresholded.width()
+
+        nativeData?.let { nativeData ->
+            thresholded.get(0,0, nativeData)
+            for (i in (0 until height)) {
+                for (j in (0 until width)) {
+                    val isUp = if (if (i == 0) true else {
+                        nativeData[(i - 1) * width + j] < 0
+                    }) 1 else 0
+                    val isDown = if (if (i == height - 1) true else {
+                        nativeData[(i + 1) * width + j] < 0
+                    }) 1 else 0
+                    val isLeft = if (if (j == 0) true else {
+                        nativeData[i * width + j - 1] < 0
+                    }) 1 else 0
+                    val isRight = if (if (j == width - 1) true else {
+                        nativeData[i * width + j + 1] < 0
+                    }) 1 else 0
+                    if (nativeData[i * width + j] < 0 && isUp + isDown + isLeft + isRight > 2) {  // -1 == 255 in java bytes
+                        sumY += i
+                        sumX += j
+                        count += 1
+                    }
+                }
+            }
+        }
+
+        if (count > 100) {
+            val posX = sumX / count.toDouble()
+            val posY = sumY / count.toDouble()
+
+            Log.d(TAG, "Sum: $sumX, $sumY Avr: $posX, $posY")
+
+            // draw a rectangle around the object (the size - 200x200 - is arbitrary)
+            Imgproc.rectangle(hsv, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
+            Imgproc.rectangle(thresholded, Point(posX - 100, posY - 100), Point(posX + 100, posY + 100), Scalar(250.0, 250.0, 250.0))
+
+            val percentX = (posX / width.toDouble()) * 100
+            val percentY = (posY / height.toDouble()) * 100
+
+            actionSubject.onNext((if (percentX in (0..100)) percentX else -1.0).toByte())
+            actionSubject.onNext((if (percentY in (0..100)) (100 - percentY) else -1.0).toByte())
+        } else {
+            actionSubject.onNext(-1)
+            actionSubject.onNext(-1)
+        }
+
+
         // This should smoothen the image a little so that the small fragments don't
         // disturb the results.
 
-        Imgproc.erode(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
-        Imgproc.dilate(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
+        //Imgproc.erode(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
+        //Imgproc.dilate(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
 
-        Imgproc.dilate(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
-        Imgproc.erode(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
+        //Imgproc.dilate(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
+        //Imgproc.erode(thresholded, thresholded, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0,5.0)))
 
         // Detect "moments" in the image - i.e. object location and size if there is just one object
 
+
+/*
         val moments = Imgproc.moments(thresholded)
 
         val dM01 = moments._m01
@@ -272,7 +331,7 @@ class MainActivity : Activity(), CameraBridgeViewBase.CvCameraViewListener2 {
 
         actionSubject.onNext((if (percentX in (0..100)) percentX else -1.0).toByte())
         actionSubject.onNext((if (percentY in (0..100)) (100 - percentY) else -1.0).toByte())
-
+*/
         return if (showImageView.isChecked) {
             hsv
         } else {
