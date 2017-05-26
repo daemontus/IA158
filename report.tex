@@ -1,0 +1,65 @@
+\documentclass{article}
+\usepackage[resetfonts]{cmap}
+\usepackage{lmodern} 
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{overpic}
+
+\title{IA158 LEGO Midstorms project}
+\author{Samuel Pastva (410286), Jiří Mauritz (409972), \\ Abdallah Altrabeishi (466303)}
+\begin{document}
+\maketitle
+
+% Abstract
+
+The goal of our project was to create a model of a stationary gun turret.
+Horizontal movement rotates the turret full $360^\circ$ and vertical movement lifts the shooting arm up and down.
+To determine an accurate position of the target, we used a camera on a mobile phone, which is attached to the turret.
+The brick is connected to the phone via Bluetooth and the turret moves according to the information received, so that the gun is aimed at the target.
+When the target is in the centre of the view for sufficiently long time, the turret shoots a ball.
+The target is usually single colour small object which is easily recognizable among other colours in the environment.
+
+
+\section{Hardware}
+
+\begin{figure}
+	
+	\begin{center}
+		\begin{overpic}[width=.5\textwidth]{extra/electronics.jpg}\end{overpic}\hfill
+		\begin{overpic}[width=.5\textwidth]{extra/mechanics.jpg}\end{overpic}\hfill
+	\end{center}
+	
+	\caption{Robot design}
+	\label{fig:robot}
+\end{figure}
+
+The physical design of the robot is presented in Figure \ref{fig:robot}. The electronic blueprint (in the LEGO Digital Designer format) and more robot images are provided with the source code. However, note that due to the LEGO Digital Designer limitations, some of the structural elements are less stable since not all bricks would actually fit into the model. Therefore use your best judgement when rebuilding the robot.
+
+As you can see, the turret stands on a stable triangular platform, which provides a firm base for rotating. Turret itself consists of the control brick and the arm for shooting, which also carries the phone. We took advantage of all three motors that are available in the construction set. The first rotates the turret, second moves the arm and the third controls shooting. We had to use cogwheels to slow down the movement of the motors and make the construction more robust.
+
+\section{Software}
+
+\subsubsection{Phone Software}
+
+The phone uses the OpenCV \footnote{http://opencv.org/} integration for Android \footnote{https://developer.android.com/index.html} to provide basic object tracking based on the object colour. The application is programmed to monitor the camera and filter out a specific colour range from the image. When an object is detected (the amount of observed pixels is more than the given threshold), the position of the object is computed as an average of all observed pixels. To avoid problems with noise, the application also filters out obvious outliers (i.e. pixels with less than two observed neighbours). Finally, the position is normalized into a $0..99$ range and broadcasted using the UDP protocol to the given broadcast IP address. The packets are throttled to a 50ms interval.
+
+\subsubsection{Robot Software}
+
+We tested more operating systems for the EV3 brick, however, the most reliable turned out to be leJOS \footnote{http://www.lejos.org/}. Consequently, we were programming the software in the Java language. We used Java multi-threading to concurrently receive network packets and control each motor. Controlling each motor concurrently turned out to be a very useful feature, since a lot of operations concerning the motors are blocking (and can actually take quite a lot of time).
+
+The program has a global state (implemented using standard Java atomic variables) describing the assumed object position. This position is updated by the networking thread every time a packet is available. There is no buffer for these values, therefore, the threads controlling movement always see the latest value, even though they did not read the previous one. Thanks to this solution, we mitigate troubles with the network jitter and latency.
+ 
+Threads controlling horizontal and vertical movement read the target position and control the motors accordingly. Instead of turning the motor by some specific angle, we use forward and backward methods, which causes the movement to be smoother. We let the motors turn and periodically check the angle using the built-in tachometer. We update the target position using these tachometer values in order to avoid overshooting the target. When the angle of the motor is within 10 degrees of the required angle, we stop the motor. Unless the motors are busy, these tachometer corrections are performed roughly every 20ms. We also tried modifying the speed of the motors, however, this seemed to decrease the precision of the tachometer, throwing off other correction systems, hence we haven't used it in the end.
+ 
+Last thread controls the shooting. Since we want to shoot only when we are sure about the position of the target, we continuously monitor the target position and shoot only when the robot is correctly oriented for more than 1s. Still, the time between initiating the shooting and real shot can be quite long. However, other threads continue with the aiming during this process and make the shot as accurate as possible.
+
+\section{Problems encountered}
+
+\begin{itemize}
+	\item The turret is rather heavy (especially with the phone) and the plastic cogwheels have quite a lot of leeway. Therefore the robot can become unstable when moving fast.
+	\item The thread scheduler is not very fair (especially when dealing with the long blocking motor updates). In our experiments, some threads could be preempted for more than 200ms, resulting in high delay in robot movement.
+	\item The delay between image capture and robot reaction is very high ($\leq$50ms in the phone + 100-500ms network delay + 100-200ms scheduler delay), therefore corrections are always necessary to avoid extensive position overshooting.
+	\item The light conditions affects the image recognition significantly. Try to use flat objects (avoid shadows etc.) with good external light sources.
+\end{itemize}
+
+\end{document}
