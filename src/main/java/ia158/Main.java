@@ -46,8 +46,6 @@ public class Main {
         shoot = new EV3LargeRegulatedMotor(MotorPort.D);
         aim = new EV3MediumRegulatedMotor(MotorPort.C);
 
-        //float MAX_SPEED_DIR = direction.getMaxSpeed() / 2;
-        //float MAX_SPEED_AIM = aim.getMaxSpeed() / 10;
         float MAX_DIR = direction.getMaxSpeed() / 4;
         float MAX_AIM = aim.getMaxSpeed() / 20;
         direction.setSpeed((int) MAX_DIR);
@@ -64,17 +62,18 @@ public class Main {
             @Override
             public void run() {
                 byte[] buffer = new byte[2];
+                // receive UDP packets and update global state
                 while (System.currentTimeMillis() < start + timeout) {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     try {
                         socket.receive(packet);
                         gone.set(buffer[0] == -1 || buffer[1] == -1);
                         if (buffer[0] != -1 && buffer[1] != -1) {
-                            int V = buffer[0] - 50;
+                            int H = buffer[0] - 50;
                             System.out.println("Received: "+V);
-                            //V += correctionH.getAndSet(0);
+                            H += correctionH.getAndSet(0);
                             System.out.println("Corrected: "+V);
-                            horizontal.set(V);
+                            horizontal.set(H);
                             vertical.set(buffer[1] - 50);
                         }
                     } catch (IOException e) {
@@ -85,6 +84,7 @@ public class Main {
         });
 
         Thread controlD = new Thread(() -> {
+            // Check global state and tachometers, update motor status accordingly
             int lastTacho = 0;
             while (System.currentTimeMillis() < start + timeout) {
                 int newTacho = direction.getTachoCount();
@@ -97,7 +97,6 @@ public class Main {
                     //direction.setSpeed((int) (Math.min(1.0, Math.abs(todo) / 25.0) * MAX_DIR));
                     if (todo > 0) direction.forward();
                     else direction.backward();
-                    //direction.rotate(todo, true);
                 } else {
                     direction.stop(true);
                 }
@@ -110,6 +109,7 @@ public class Main {
         });
 
         Thread controlA = new Thread(() -> {
+            // Check global state and tachometers, update motor status accordingly
             int lastTacho = 0;
             while (System.currentTimeMillis() < start + timeout) {
                 int newTacho = aim.getTachoCount();
@@ -134,6 +134,7 @@ public class Main {
         });
 
         Thread controlS = new Thread(() -> {
+            // monitor the H/V coordinates and shoot if locked for more than 1s
             int lock = 0;
             while (System.currentTimeMillis() < start + timeout) {
                 int h = horizontal.get();
@@ -165,103 +166,5 @@ public class Main {
         controlD.join();
         controlA.join();
         controlS.join();
-/*
-        // Run
-        while (System.currentTimeMillis() < start + 22000) {
-            // receive packet
-            byte[] buffer = new byte[2];
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            socket.receive(packet);
-
-            Action action = Action.fromByte(buffer[0], buffer[1]);
-            System.out.println("Action: "+action);
-
-            int rotate = (action.getHorizontal() - 50);
-            if (Math.abs(rotate) > 5) {
-                direction.rotate(Math.min(5, Math.max(-5, rotate)), true);
-            }
-
-            /*int tilt = (action.getVertical() - 50);
-            if (Math.abs(tilt) > 5) {
-                aim.rotate(tilt, true);
-            }
-
-
-            if (action.isRight()) {
-                lostTargetTime = null;
-                targetingTime = null;
-                direction.setSpeed(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED_DIR));
-                System.out.println(Math.round(((float) (action.getHorizontal() - 50) / SPEED) * MAX_SPEED_DIR));
-                if (!lastAction.isRight()) {
-                    // start rotating right
-                    direction.forward();
-                    lastAction = action;
-                }
-            }
-
-            if (action.isLeft()) {
-                lostTargetTime = null;
-                targetingTime = null;
-                direction.setSpeed(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED_DIR));
-                System.out.println(Math.round(((float) (50 - action.getHorizontal())/ SPEED) * MAX_SPEED_DIR));
-                if (!lastAction.isLeft()) {
-                    // start rotating left
-                    direction.backward();
-                    lastAction = action;
-                }
-            }
-
-            if (action.isShoot()) {
-                // stop rotating
-                direction.stop(true);
-
-                lostTargetTime = null;
-                if (targetingTime == null) {
-                    targetingTime = System.currentTimeMillis();
-                } else if (System.currentTimeMillis() > targetingTime + TIME_BEFORE_SHOOT) {
-                    shoot.rotate(360, true);
-                    targetingTime = null;
-                }
-                lastAction = action;
-            }
-
-            if (action.isHorizontalNone()) {
-                targetingTime = null;
-                if (lastAction.isShoot()) {
-                    if (lostTargetTime != null && System.currentTimeMillis() > lostTargetTime + START_SEARCHING_TIME) {
-                        // start searching
-                        direction.forward();
-                        lastAction = new Action(90, -1);
-                        lostTargetTime = null;
-                    } else if (lostTargetTime == null) {
-                        lostTargetTime = System.currentTimeMillis();
-                    }
-                }
-            }
-
-            if (action.isUp()) {
-                if (!aim.isStalled()) {
-                    aim.forward();
-                    aim.setSpeed(Math.round(((float) (action.getVertical() - 50) / SPEED) * MAX_SPEED_AIM));
-                } else {
-                    aim.stop(true);
-                }
-            }
-
-            if (action.isDown()) {
-                if (!aim.isStalled()) {
-                    aim.backward();
-                    aim.setSpeed(Math.round(((float) (50 - action.getVertical())/ SPEED) * MAX_SPEED_AIM));
-                } else {
-                    aim.stop(true);
-                }
-            }
-
-            if (action.isVerticalNone()) {
-                aim.stop(true);
-            }
-
-        }
-*/
     }
 }

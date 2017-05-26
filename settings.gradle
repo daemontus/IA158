@@ -1,3 +1,4 @@
 rootProject.name = 'IA158'
 
+// Uncomment this to also build the android app
 //include ':'//, ':app'
